@@ -37,23 +37,39 @@ export const AiCodeReviewView = ({ projectId }) => {
   const fetchInitialData = async () => {
     if (!projectId) return;
     setLoading(true);
+    
+    // Clear previous project state immediately
+    setReviews([]);
+    setActiveReview(null);
+    setPullRequests([]);
+    setSelectedPrId(null);
+
     try {
       const [reviewsData, prsData] = await Promise.all([
         aiReviewService.getReviewsForProject(projectId),
         githubService.getPullRequests(projectId)
       ]);
-      setReviews(reviewsData);
-      setPullRequests(prsData);
 
-      if (prsData.length > 0) {
-        setSelectedPrId(prsData[0].id);
-      }
+      const activePrs = prsData || [];
+      const activeReviews = reviewsData || [];
 
-      if (reviewsData.length > 0) {
-        setActiveReview(reviewsData[0]);
+      setReviews(activeReviews);
+      setPullRequests(activePrs);
+
+      if (activePrs.length > 0) {
+        setSelectedPrId(activePrs[0].id);
+        const matchingReview = activeReviews.find(r => r.pullRequestId === activePrs[0].id) || activeReviews[0] || null;
+        setActiveReview(matchingReview);
+      } else {
+        setSelectedPrId(null);
+        setActiveReview(null);
       }
     } catch (err) {
       console.error('Error loading AI Code Review data:', err);
+      setReviews([]);
+      setPullRequests([]);
+      setSelectedPrId(null);
+      setActiveReview(null);
     } finally {
       setLoading(false);
     }
@@ -175,7 +191,12 @@ export const AiCodeReviewView = ({ projectId }) => {
               <span className="text-xs text-zinc-400">Target PR:</span>
               <select
                 value={selectedPrId || ''}
-                onChange={(e) => setSelectedPrId(parseInt(e.target.value))}
+                onChange={(e) => {
+                  const prId = parseInt(e.target.value);
+                  setSelectedPrId(prId);
+                  const matching = reviews.find(r => r.pullRequestId === prId);
+                  if (matching) setActiveReview(matching);
+                }}
                 className="bg-transparent text-xs font-semibold text-emerald-400 focus:outline-none cursor-pointer"
               >
                 {pullRequests.map(pr => (
@@ -200,12 +221,29 @@ export const AiCodeReviewView = ({ projectId }) => {
             ) : (
               <>
                 <Sparkles className="h-3.5 w-3.5 text-emerald-300" />
-                <span>Run AI Review on PR #{pullRequests.find(p => p.id === selectedPrId)?.number || 42}</span>
+                <span>
+                  {selectedPrId 
+                    ? `Run AI Review on PR #${pullRequests.find(p => p.id === selectedPrId)?.number || ''}`
+                    : 'Select Pull Request'}
+                </span>
               </>
             )}
           </button>
         </div>
       </div>
+
+      {/* No Pull Requests State Message */}
+      {pullRequests.length === 0 && (
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-8 text-center space-y-3 font-mono">
+          <FileCode className="h-10 w-10 text-zinc-600 mx-auto" />
+          <h3 className="text-sm font-semibold text-zinc-300">
+            No Pull Requests found for this repository. Create a PR on GitHub to run an AI Code Review.
+          </h3>
+          <p className="text-xs text-zinc-500 max-w-md mx-auto font-sans">
+            Connect a repository in the GitHub Integration tab or open a pull request on GitHub to inspect code diffs and run automated AI reviews.
+          </p>
+        </div>
+      )}
 
       {/* Progress Alert when ANALYZING */}
       {activeReview?.status === 'ANALYZING' && (
@@ -228,7 +266,7 @@ export const AiCodeReviewView = ({ projectId }) => {
             <div className="space-y-1">
               <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider block">Quality Score</span>
               <div className="text-2xl font-bold font-mono text-zinc-100 flex items-baseline space-x-1">
-                <span>{activeReview.qualityScore.toFixed(1)}</span>
+                <span>{activeReview.qualityScore ? activeReview.qualityScore.toFixed(1) : '100.0'}</span>
                 <span className="text-xs text-zinc-500">%</span>
               </div>
             </div>
@@ -436,7 +474,7 @@ export const AiCodeReviewView = ({ projectId }) => {
                 <h4 className="text-xs font-semibold text-zinc-100">Sandbox AI Review Results</h4>
               </div>
               <span className="text-xs font-semibold text-emerald-400">
-                Quality Score: {sandboxResult.qualityScore.toFixed(1)}%
+                Quality Score: {sandboxResult.qualityScore ? sandboxResult.qualityScore.toFixed(1) : '100.0'}%
               </span>
             </div>
 

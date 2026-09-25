@@ -24,17 +24,20 @@ public class AiCodeReviewService {
     private final PullRequestRepository pullRequestRepository;
     private final ChangedFileRepository changedFileRepository;
     private final ProjectRepository projectRepository;
+    private final GithubRepositoryRepository githubRepositoryRepository;
     private final LlmClient llmClient;
 
     public AiCodeReviewService(CodeReviewRepository codeReviewRepository,
                                PullRequestRepository pullRequestRepository,
                                ChangedFileRepository changedFileRepository,
                                ProjectRepository projectRepository,
+                               GithubRepositoryRepository githubRepositoryRepository,
                                LlmClient llmClient) {
         this.codeReviewRepository = codeReviewRepository;
         this.pullRequestRepository = pullRequestRepository;
         this.changedFileRepository = changedFileRepository;
         this.projectRepository = projectRepository;
+        this.githubRepositoryRepository = githubRepositoryRepository;
         this.llmClient = llmClient;
     }
 
@@ -45,6 +48,13 @@ public class AiCodeReviewService {
 
         PullRequest pullRequest = pullRequestRepository.findById(pullRequestId)
             .orElseThrow(() -> new ResourceNotFoundException("Pull request not found with id: " + pullRequestId));
+
+        if (pullRequest.getGithubRepository() != null && pullRequest.getGithubRepository().getProject() != null) {
+            Long prProjectId = pullRequest.getGithubRepository().getProject().getId();
+            if (!projectId.equals(prProjectId)) {
+                throw new ResourceNotFoundException("Pull request " + pullRequestId + " does not belong to project id: " + projectId);
+            }
+        }
 
         CodeReview review = codeReviewRepository.findByPullRequestId(pullRequestId)
             .orElseGet(() -> new CodeReview(project, pullRequest));
@@ -57,6 +67,20 @@ public class AiCodeReviewService {
 
         CodeReview savedReview = codeReviewRepository.save(review);
         return new CodeReviewDto(savedReview);
+    }
+
+    @Transactional
+    public CodeReviewDto initiatePullRequestReviewByNumber(Long projectId, Integer prNumber) {
+        Project project = projectRepository.findById(projectId)
+            .orElseThrow(() -> new ResourceNotFoundException("Project not found with id: " + projectId));
+
+        GithubRepository repo = githubRepositoryRepository.findByProjectId(projectId)
+            .orElseThrow(() -> new ResourceNotFoundException("No GitHub repository connected to project id: " + projectId));
+
+        PullRequest pullRequest = pullRequestRepository.findByGithubRepositoryIdAndNumber(repo.getId(), prNumber)
+            .orElseThrow(() -> new ResourceNotFoundException("Pull request #" + prNumber + " not found for project id: " + projectId));
+
+        return initiatePullRequestReview(projectId, pullRequest.getId());
     }
 
     @Async("githubTaskExecutor")
@@ -77,23 +101,25 @@ public class AiCodeReviewService {
             List<ChangedFile> changedFiles = changedFileRepository.findByPullRequestId(pullRequestId);
             List<CodeReviewFindingDto> aggregatedFindings = new ArrayList<>();
 
-            if (changedFiles.isEmpty()) {
-                // If no changed files exist, perform sample check
-                aggregatedFindings.addAll(llmClient.analyzeCode("src/main/java/com/devopsai/service/TelemetryService.java",
-                    "public User getUser(Long id) { return repository.findById(id).get(); }"));
-            } else {
+            if (changedFiles != null && !changedFiles.isEmpty()) {
                 for (ChangedFile file : changedFiles) {
                     String fileContent = file.getPatch() != null ? file.getPatch() : file.getFilename();
                     List<CodeReviewFindingDto> findings = llmClient.analyzeCode(file.getFilename(), fileContent);
-                    aggregatedFindings.addAll(findings);
+                    if (findings != null) {
+                        aggregatedFindings.addAll(findings);
+                    }
                 }
             }
 
             double score = calculateQualityScore(aggregatedFindings);
             review.setQualityScore(score);
             review.setStatus(ReviewStatus.COMPLETED);
-            review.setSummary("AI Code Review Completed: " + aggregatedFindings.size() + " findings identified across " + (changedFiles.isEmpty() ? 1 : changedFiles.size()) + " files. Quality Score: " + String.format("%.1f", score) + "%");
+            String projectName = review.getProject() != null ? review.getProject().getName() : "Project";
+            review.setSummary("AI Code Review Completed: " + aggregatedFindings.size() + " findings identified across " 
+                + (changedFiles != null ? changedFiles.size() : 0) + " files for " + projectName 
+                + ". Quality Score: " + String.format("%.1f", score) + "%");
 
+            review.getFindings().clear();
             for (CodeReviewFindingDto dto : aggregatedFindings) {
                 CodeReviewFinding finding = new CodeReviewFinding(
                     dto.getFilename(),
@@ -164,7 +190,22 @@ public class AiCodeReviewService {
     }
 
     @Transactional(readOnly = true)
+    public CodeReviewDto getLatestReviewForProject(Long projectId) {
+        if (!projectRepository.existsById(projectId)) {
+            throw new ResourceNotFoundException("Project not found with id: " + projectId);
+        }
+        List<CodeReview> reviews = codeReviewRepository.findByProjectIdOrderByCreatedAtDesc(projectId);
+        if (reviews.isEmpty()) {
+            return null;
+        }
+        return new CodeReviewDto(reviews.get(0));
+    }
+
+    @Transactional(readOnly = true)
     public List<CodeReviewDto> getReviewsForProject(Long projectId) {
+        if (!projectRepository.existsById(projectId)) {
+            throw new ResourceNotFoundException("Project not found with id: " + projectId);
+        }
         return codeReviewRepository.findByProjectIdOrderByCreatedAtDesc(projectId).stream()
             .map(CodeReviewDto::new)
             .collect(Collectors.toList());

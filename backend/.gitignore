@@ -14,3 +14,4 @@ data/
 .classpath
 .project
 .settings/
+*.log

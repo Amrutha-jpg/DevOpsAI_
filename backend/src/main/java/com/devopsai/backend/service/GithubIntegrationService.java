@@ -138,12 +138,15 @@ public class GithubIntegrationService {
 
     @Transactional(readOnly = true)
     public List<PullRequestDto> getPullRequests(Long projectId) {
-        GithubRepository repo = githubRepositoryRepository.findByProjectId(projectId)
-            .orElseThrow(() -> new ResourceNotFoundException("No GitHub repository connected to project id: " + projectId));
+        if (!projectRepository.existsById(projectId)) {
+            throw new ResourceNotFoundException("Project not found with id: " + projectId);
+        }
 
-        return pullRequestRepository.findByGithubRepositoryIdOrderByNumberDesc(repo.getId()).stream()
-            .map(PullRequestDto::new)
-            .collect(Collectors.toList());
+        return githubRepositoryRepository.findByProjectId(projectId)
+            .map(repo -> pullRequestRepository.findByGithubRepositoryIdOrderByNumberDesc(repo.getId()).stream()
+                .map(PullRequestDto::new)
+                .collect(Collectors.toList()))
+            .orElse(java.util.Collections.emptyList());
     }
 
     @Transactional(readOnly = true)

@@ -118,36 +118,38 @@ public class GithubApiClient {
             }
         }
 
-        // Demo Fallback PR #42
-        PullRequest pr42 = new PullRequest(
-            42,
-            "PR #42: Feature 1 & 2 Core Integration - Auth, RBAC & Priority Queue",
-            "Implements JWT Authentication, Role-Based Access Control, and DSA Max-Heap Priority Queue algorithm for issues.",
-            PullRequestState.OPEN,
-            "feature/auth-rbac-priority",
-            "main",
-            "dev_user",
-            3,
-            285,
-            42,
-            repo
-        );
-        prs.add(pr42);
+        // Demo Fallback PRs strictly for the demo repository
+        if (repo != null && "smarthealth-platform".equalsIgnoreCase(repo.getRepoName())) {
+            PullRequest pr42 = new PullRequest(
+                42,
+                "PR #42: Feature 1 & 2 Core Integration - Auth, RBAC & Priority Queue",
+                "Implements JWT Authentication, Role-Based Access Control, and DSA Max-Heap Priority Queue algorithm for issues.",
+                PullRequestState.OPEN,
+                "feature/auth-rbac-priority",
+                "main",
+                "dev_user",
+                3,
+                285,
+                42,
+                repo
+            );
+            prs.add(pr42);
 
-        PullRequest pr41 = new PullRequest(
-            41,
-            "PR #41: PostgreSQL & Redis Docker Compose Setup",
-            "Containerizes PostgreSQL 16 and Redis 7 in Infrastructure docker-compose.yml.",
-            PullRequestState.MERGED,
-            "feature/docker-compose",
-            "main",
-            "admin",
-            2,
-            75,
-            12,
-            repo
-        );
-        prs.add(pr41);
+            PullRequest pr41 = new PullRequest(
+                41,
+                "PR #41: PostgreSQL & Redis Docker Compose Setup",
+                "Containerizes PostgreSQL 16 and Redis 7 in Infrastructure docker-compose.yml.",
+                PullRequestState.MERGED,
+                "feature/docker-compose",
+                "main",
+                "admin",
+                2,
+                75,
+                12,
+                repo
+            );
+            prs.add(pr41);
+        }
 
         return prs;
     }

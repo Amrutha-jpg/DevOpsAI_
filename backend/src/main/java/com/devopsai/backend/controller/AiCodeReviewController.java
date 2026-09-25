@@ -2,7 +2,9 @@ package com.devopsai.backend.controller;
 
 import com.devopsai.backend.dto.AnalyzeSnippetRequest;
 import com.devopsai.backend.dto.CodeReviewDto;
+import com.devopsai.backend.dto.PullRequestDto;
 import com.devopsai.backend.service.AiCodeReviewService;
+import com.devopsai.backend.service.GithubIntegrationService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,13 +18,38 @@ import java.util.List;
 public class AiCodeReviewController {
 
     private final AiCodeReviewService aiCodeReviewService;
+    private final GithubIntegrationService githubIntegrationService;
 
-    public AiCodeReviewController(AiCodeReviewService aiCodeReviewService) {
+    public AiCodeReviewController(AiCodeReviewService aiCodeReviewService,
+                                  GithubIntegrationService githubIntegrationService) {
         this.aiCodeReviewService = aiCodeReviewService;
+        this.githubIntegrationService = githubIntegrationService;
     }
 
     /**
-     * Triggers asynchronous AI code review analysis for a pull request. Returns HTTP 202 Accepted.
+     * Scoped PR Listing for a project.
+     */
+    @GetMapping("/reviews/projects/{projectId}/pulls")
+    @PreAuthorize("hasRole('ADMIN') or @projectSecurity.hasProjectPermission(#projectId, authentication, 'VIEWER')")
+    public ResponseEntity<List<PullRequestDto>> getPullRequestsForReview(@PathVariable Long projectId) {
+        List<PullRequestDto> pulls = githubIntegrationService.getPullRequests(projectId);
+        return ResponseEntity.ok(pulls);
+    }
+
+    /**
+     * Triggers asynchronous AI code review analysis for a pull request by PR number.
+     */
+    @PostMapping("/reviews/projects/{projectId}/pr/{prNumber}")
+    @PreAuthorize("hasRole('ADMIN') or @projectSecurity.hasProjectPermission(#projectId, authentication, 'DEVELOPER')")
+    public ResponseEntity<CodeReviewDto> triggerReviewByPrNumber(@PathVariable Long projectId,
+                                                                  @PathVariable Integer prNumber) {
+        CodeReviewDto reviewDto = aiCodeReviewService.initiatePullRequestReviewByNumber(projectId, prNumber);
+        aiCodeReviewService.analyzePullRequestAsync(reviewDto.getId(), reviewDto.getPullRequestId());
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(reviewDto);
+    }
+
+    /**
+     * Triggers asynchronous AI code review analysis for a pull request by PR database ID.
      */
     @PostMapping("/projects/{projectId}/reviews/analyze-pr/{pullRequestId}")
     @PreAuthorize("hasRole('ADMIN') or @projectSecurity.hasProjectPermission(#projectId, authentication, 'DEVELOPER')")
@@ -31,6 +58,19 @@ public class AiCodeReviewController {
         CodeReviewDto reviewDto = aiCodeReviewService.initiatePullRequestReview(projectId, pullRequestId);
         aiCodeReviewService.analyzePullRequestAsync(reviewDto.getId(), pullRequestId);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(reviewDto);
+    }
+
+    /**
+     * Retrieves the latest review report for a project.
+     */
+    @GetMapping("/reviews/projects/{projectId}/latest")
+    @PreAuthorize("hasRole('ADMIN') or @projectSecurity.hasProjectPermission(#projectId, authentication, 'VIEWER')")
+    public ResponseEntity<CodeReviewDto> getLatestReviewForProject(@PathVariable Long projectId) {
+        CodeReviewDto dto = aiCodeReviewService.getLatestReviewForProject(projectId);
+        if (dto == null) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.ok(dto);
     }
 
     /**
