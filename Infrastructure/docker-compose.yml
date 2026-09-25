@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: devopsai-postgres
+    environment:
+      POSTGRES_DB: devopsai
+      POSTGRES_USER: devopsai_user
+      POSTGRES_PASSWORD: devopsai_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - devopsai-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devopsai_user -d devopsai"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: devopsai-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - devopsai-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: devopsai-backend
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/devopsai
+      SPRING_DATASOURCE_USERNAME: devopsai_user
+      SPRING_DATASOURCE_PASSWORD: devopsai_password
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+    networks:
+      - devopsai-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: devopsai-frontend
+    ports:
+      - "80:80"
+    networks:
+      - devopsai-net
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+networks:
+  devopsai-net:
+    driver: bridge
+
+volumes:
+  postgres_data:

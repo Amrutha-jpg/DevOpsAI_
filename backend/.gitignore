@@ -1,0 +1,16 @@
+# Local H2 database storage
+/data/
+data/
+*.mv.db
+*.trace.db
+
+# Maven build artifacts
+/target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# IDE files
+.idea/
+*.iml
+.classpath
+.project
+.settings/
