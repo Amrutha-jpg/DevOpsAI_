@@ -94,7 +94,7 @@ public class SecurityConfig {
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**", "/api/webhooks/**", "/h2-console/**", "/error", "/actuator/health", "/actuator/info").permitAll()
+                .requestMatchers("/api/auth/**", "/api/webhooks/**", "/h2-console/**", "/error", "/actuator/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/projects/**").authenticated()
                 .requestMatchers(HttpMethod.POST, "/api/projects/**").hasAnyRole("ADMIN", "PROJECT_MANAGER")
                 .requestMatchers(HttpMethod.PUT, "/api/projects/**").authenticated()
