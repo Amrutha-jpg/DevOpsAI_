@@ -22,6 +22,10 @@ spring:
       hibernate:
         format_sql: false
         dialect: org.hibernate.dialect.PostgreSQLDialect
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:redis}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
 
 management:
   endpoints:
@@ -31,6 +35,9 @@ management:
   endpoint:
     health:
       show-details: never
+  health:
+    redis:
+      enabled: false
 
 app:
   jwt:
