@@ -40,17 +40,17 @@ jobs:
       - name: Stage 1 - Build Backend & Frontend
         run: |
           cd backend
-          ./mvnw clean compile -DskipTests
+          mvn clean compile -DskipTests
 
       - name: Stage 2 - Run Unit Tests
         run: |
           cd backend
-          ./mvnw test -Dtest=*Test
+          mvn test -Dtest=*Test
 
       - name: Stage 3 - Run Integration Tests
         run: |
           cd backend
-          ./mvnw verify -Dtest=*IntegrationTest
+          mvn verify -Dtest=*IntegrationTest
 
       - name: Stage 4 - Run API Contract Tests
         run: |
@@ -60,4 +60,4 @@ jobs:
       - name: Stage 5 - AI Security Vulnerability Scan
         run: |
           cd backend
-          ./mvnw spotbugs:check || echo "SAST Security scan completed"
+          mvn spotbugs:check || echo "SAST Security scan completed"
