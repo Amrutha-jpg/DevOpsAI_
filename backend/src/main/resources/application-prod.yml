@@ -1,0 +1,58 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://db:5432/devopsai}
+    username: ${DB_USERNAME:devopsai_user}
+    password: ${DB_PASSWORD:devopsai_password}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 15
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    properties:
+      hibernate:
+        format_sql: false
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info
+  endpoint:
+    health:
+      show-details: never
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:9a6f8b12c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1}
+    access-token-expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+    refresh-token-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
+  cors:
+    allowed-origins: ${ALLOWED_ORIGINS:*}
+
+gemini:
+  api-key: ${GEMINI_API_KEY:}
+
+openai:
+  api-key: ${OPENAI_API_KEY:}
+
+github:
+  client-id: ${GITHUB_CLIENT_ID:}
+  client-secret: ${GITHUB_CLIENT_SECRET:}
+  webhook-secret: ${GITHUB_WEBHOOK_SECRET:}
+
+server:
+  port: 8080
+  error:
+    include-message: never
+    include-binding-errors: never

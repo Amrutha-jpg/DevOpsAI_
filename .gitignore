@@ -1,3 +1,8 @@
+# Local environment files
+.env
+.env.local
+.env.*.local
+
 # Local database files
 /data/
 /backend/data/
@@ -9,3 +14,4 @@ target/
 node_modules/
 dist/
 .DS_Store
+
